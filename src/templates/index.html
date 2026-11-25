@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sign Language Interpreter — Local Folder</title>
+<style>
+  :root {
+    --ink: #1b1f23;
+    --paper: #fbfaf7;
+    --rule: #d8d3c8;
+    --accent: #2f6f4f;
+    --accent-dim: #e7f0ea;
+    --warn: #9a5b1f;
+    --warn-dim: #f5ead9;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    --sans: "IBM Plex Sans", -apple-system, Segoe UI, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    padding: 48px 24px 80px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+
+  header { margin-bottom: 40px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 8px;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 10px;
+    letter-spacing: -0.01em;
+  }
+  p.sub {
+    margin: 0;
+    color: #55534c;
+    font-size: 15px;
+    line-height: 1.5;
+    max-width: 56ch;
+  }
+
+  .card {
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 28px;
+    background: #fff;
+  }
+
+  .dropzone {
+    border: 1.5px dashed var(--rule);
+    border-radius: 8px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+  }
+  .dropzone .verb {
+    font-weight: 600;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+  .dropzone .hint {
+    font-size: 13px;
+    color: #726f66;
+    font-family: var(--mono);
+  }
+  input[type="file"] { display: none; }
+
+  .folder-name {
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--ink);
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 20px;
+  }
+  label.threshold {
+    font-size: 13px;
+    color: #55534c;
+    font-family: var(--mono);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  input[type="range"] { width: 120px; }
+
+  button.run {
+    margin-top: 20px;
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: 7px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  button.run:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  button.run:not(:disabled):hover { opacity: 0.9; }
+
+  #status {
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: #726f66;
+  }
+
+  .result { margin-top: 32px; }
+  .sentence-out {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    padding: 20px 22px;
+    background: var(--accent-dim);
+    border-radius: 8px 8px 0 0;
+    word-break: break-word;
+  }
+  .confidence-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 22px;
+    background: #f1efe7;
+    border-radius: 0 0 8px 8px;
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .confidence-bar .score {
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .confidence-bar .score.good { color: var(--accent); }
+  .confidence-bar .score.mid { color: var(--warn); }
+  .confidence-bar .score.poor { color: #b3402f; }
+  .motion-note {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: #efe6f5;
+    color: #5b3a75;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: var(--mono);
+  }
+
+  .word-block {
+    margin-top: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .word-block:last-child { border-bottom: none; }
+  .word-folder {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #9a978d;
+    margin-bottom: 6px;
+  }
+  .letters { display: flex; flex-wrap: wrap; gap: 6px; }
+  .letter-chip {
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 4px 9px;
+    border-radius: 5px;
+    background: var(--accent-dim);
+    color: #1f4d35;
+  }
+  .letter-chip.low {
+    background: var(--warn-dim);
+    color: var(--warn);
+  }
+  .letter-chip.motion {
+    background: #efe6f5;
+    color: #5b3a75;
+  }
+  .letter-chip .conf { opacity: 0.65; margin-left: 4px; }
+
+  .error-box {
+    margin-top: 20px;
+    padding: 14px 16px;
+    background: var(--warn-dim);
+    color: var(--warn);
+    border-radius: 7px;
+    font-size: 14px;
+    font-family: var(--mono);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Local image mode</p>
+    <h1>Fingerspelled sentence reader</h1>
+    <p class="sub">
+      Choose a folder laid out as one subfolder per word, each containing
+      numbered letter images (e.g. <code>01_hello/01_h.jpg, 02_e.jpg…</code>).
+      Everything is processed locally.
+    </p>
+  </header>
+
+  <div class="card">
+    <div class="dropzone" id="dropzone">
+      <div class="verb">Click to choose a folder</div>
+      <div class="hint">webkitdirectory picker — subfolders included</div>
+      <input type="file" id="folderInput" webkitdirectory directory multiple>
+    </div>
+    <div class="folder-name" id="folderName"></div>
+
+    <div class="controls">
+      <label class="threshold">
+        confidence floor
+        <input type="range" id="threshold" min="0" max="1" step="0.05" value="0.5">
+        <span id="thresholdVal">0.50</span>
+      </label>
+    </div>
+
+    <button class="run" id="runBtn" disabled>Read sentence</button>
+    <div id="status"></div>
+  </div>
+
+  <div class="result" id="result"></div>
+</div>
+
+<script>
+const dropzone = document.getElementById('dropzone');
+const folderInput = document.getElementById('folderInput');
+const folderNameEl = document.getElementById('folderName');
+const runBtn = document.getElementById('runBtn');
+const statusEl = document.getElementById('status');
+const resultEl = document.getElementById('result');
+const thresholdInput = document.getElementById('threshold');
+const thresholdVal = document.getElementById('thresholdVal');
+
+let selectedFiles = [];
+
+thresholdInput.addEventListener('input', () => {
+  thresholdVal.textContent = parseFloat(thresholdInput.value).toFixed(2);
+});
+
+dropzone.addEventListener('click', () => folderInput.click());
+
+folderInput.addEventListener('change', () => {
+  selectedFiles = Array.from(folderInput.files).filter(f =>
+    /\.(jpg|jpeg|png|bmp)$/i.test(f.name)
+  );
+  if (selectedFiles.length === 0) {
+    folderNameEl.textContent = 'No image files found in that folder.';
+    runBtn.disabled = true;
+    return;
+  }
+  const topFolder = selectedFiles[0].webkitRelativePath.split('/')[0];
+  folderNameEl.textContent = `${topFolder}  —  ${selectedFiles.length} image(s) found`;
+  runBtn.disabled = false;
+  resultEl.innerHTML = '';
+});
+
+runBtn.addEventListener('click', async () => {
+  runBtn.disabled = true;
+  statusEl.textContent = 'Processing…';
+  resultEl.innerHTML = '';
+
+  const formData = new FormData();
+  selectedFiles.forEach(file => {
+    formData.append('files', file);
+    formData.append('paths', file.webkitRelativePath);
+  });
+  formData.append('confidence_threshold', thresholdInput.value);
+
+  try {
+    const res = await fetch('/predict', { method: 'POST', body: formData });
+    const data = await res.json();
+
+    if (!res.ok) {
+      resultEl.innerHTML = `<div class="error-box">${data.error || 'Something went wrong.'}</div>`;
+      statusEl.textContent = '';
+      runBtn.disabled = false;
+      return;
+    }
+
+    renderResult(data);
+    statusEl.textContent = '';
+  } catch (err) {
+    resultEl.innerHTML = `<div class="error-box">Request failed: ${err}</div>`;
+    statusEl.textContent = '';
+  }
+  runBtn.disabled = false;
+});
+
+function renderResult(data) {
+  const pct = Math.round(data.sentence_confidence * 100);
+  const scoreClass = pct >= 80 ? 'good' : pct >= 55 ? 'mid' : 'poor';
+
+  let html = `<div class="sentence-out">${escapeHtml(data.sentence || '(empty)')}</div>`;
+  html += `<div class="confidence-bar">`;
+  html += `<span>sentence confidence &middot; avg. across ${data.total_letters} letter(s)</span>`;
+  html += `<span class="score ${scoreClass}">${pct}%</span>`;
+  html += `</div>`;
+
+  if (data.low_confidence_count > 0) {
+    html += `<div class="error-box" style="margin-top:14px;">`;
+    html += `${data.low_confidence_count} letter(s) fell below the confidence floor — check the chips below.`;
+    html += `</div>`;
+  }
+
+  if (data.motion_letters_used && data.motion_letters_used.length > 0) {
+    const letters = data.motion_letters_used.map(l => l.toUpperCase()).join(', ');
+    html += `<div class="motion-note">`;
+    html += `Note: ${letters} require motion in real ASL fingerspelling — a still image can only `;
+    html += `approximate the pose, so these predictions are inherently less reliable even at high confidence.`;
+    html += `</div>`;
+  }
+
+  data.words.forEach(word => {
+    html += `<div class="word-block">`;
+    html += `<div class="word-folder">${escapeHtml(word.word_folder)} → "${escapeHtml(word.predicted_word)}"</div>`;
+    html += `<div class="letters">`;
+    word.letters.forEach(l => {
+      let cls = 'letter-chip';
+      if (l.motion_warning) cls += ' motion';
+      else if (l.low_confidence) cls += ' low';
+      const title = l.motion_warning ? ' title="motion-based letter — approximate"' : '';
+      html += `<span class="${cls}"${title}>${escapeHtml(l.letter)}<span class="conf">${Math.round(l.confidence * 100)}%</span></span>`;
+    });
+    html += `</div></div>`;
+  });
+
+  resultEl.innerHTML = html;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
